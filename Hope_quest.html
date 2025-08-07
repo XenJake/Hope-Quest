@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hope Quest</title>
+<style>
+  body {
+    background: #e0f7fa;
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    user-select: none;
+  }
+  #gameCanvas {
+    background: #ffffff;
+    display: block;
+    margin: 20px auto;
+    border: 3px solid #0288d1;
+    border-radius: 10px;
+  }
+  #ui {
+    text-align: center;
+    font-size: 1.2em;
+    color: #0277bd;
+  }
+  #message {
+    font-style: italic;
+    margin-top: 10px;
+    min-height: 30px;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+<div id="ui">
+  Hope Tokens Collected: <span id="tokenCount">0</span>
+  <div id="message"></div>
+</div>
+
+<script>
+// Game variables
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const tokenCountElem = document.getElementById('tokenCount');
+const messageElem = document.getElementById('message');
+
+const TILE_SIZE = 40;
+const ROWS = canvas.height / TILE_SIZE;
+const COLS = canvas.width / TILE_SIZE;
+
+let keysPressed = {};
+
+// Player object
+const player = {
+  x: 1,
+  y: 1,
+  color: '#1565c0',
+  size: TILE_SIZE - 6,
+  speed: 1,
+  tokens: 0,
+};
+
+// NPCs with messages
+const npcs = [
+  { x: 4, y: 3, color: '#ff8a65', message: "God’s love lights your way." },
+  { x: 10, y: 7, color: '#ffb74d', message: "Kindness is a seed of hope." },
+  { x: 7, y: 10, color: '#81c784', message: "Faith moves mountains." },
+];
+
+// Hope tokens on map
+let tokens = [
+  { x: 5, y: 5, collected: false },
+  { x: 8, y: 2, collected: false },
+  { x: 12, y: 8, collected: false },
+];
+
+// Draw grid background
+function drawGrid() {
+  ctx.fillStyle = '#bbdefb';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = '#90caf9';
+  for (let i = 0; i <= ROWS; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, i * TILE_SIZE);
+    ctx.lineTo(canvas.width, i * TILE_SIZE);
+    ctx.stroke();
+  }
+  for (let j = 0; j <= COLS; j++) {
+    ctx.beginPath();
+    ctx.moveTo(j * TILE_SIZE, 0);
+    ctx.lineTo(j * TILE_SIZE, canvas.height);
+    ctx.stroke();
+  }
+}
+
+// Draw player
+function drawPlayer() {
+  ctx.fillStyle = player.color;
+  ctx.fillRect(
+    player.x * TILE_SIZE + 3,
+    player.y * TILE_SIZE + 3,
+    player.size,
+    player.size
+  );
+}
+
+// Draw NPCs
+function drawNPCs() {
+  npcs.forEach(npc => {
+    ctx.fillStyle = npc.color;
+    ctx.beginPath();
+    ctx.arc(
+      npc.x * TILE_SIZE + TILE_SIZE / 2,
+      npc.y * TILE_SIZE + TILE_SIZE / 2,
+      TILE_SIZE / 2 - 6,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  });
+}
+
+// Draw tokens
+function drawTokens() {
+  tokens.forEach(token => {
+    if (!token.collected) {
+      ctx.fillStyle = '#ffd54f';
+      ctx.beginPath();
+      ctx.moveTo(token.x * TILE_SIZE + TILE_SIZE / 2, token.y * TILE_SIZE + 8);
+      ctx.lineTo(token.x * TILE_SIZE + TILE_SIZE / 2 + 10, token.y * TILE_SIZE + TILE_SIZE - 8);
+      ctx.lineTo(token.x * TILE_SIZE + TILE_SIZE / 2 - 10, token.y * TILE_SIZE + TILE_SIZE - 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+  });
+}
+
+// Check for collisions with walls (map borders)
+function canMove(x, y) {
+  return x >= 0 && x < COLS && y >= 0 && y < ROWS;
+}
+
+// Check interaction with NPC
+function checkNPCInteraction() {
+  for (const npc of npcs) {
+    if (npc.x === player.x && npc.y === player.y) {
+      showMessage(npc.message);
+      return true;
+    }
+  }
+  return false;
+}
+
+// Check token collection
+function checkTokenCollection() {
+  for (const token of tokens) {
+    if (!token.collected && token.x === player.x && token.y === player.y) {
+      token.collected = true;
+      player.tokens++;
+      updateTokenUI();
+      showMessage("You collected a Hope Token! Keep shining the light.");
+      return true;
+    }
+  }
+  return false;
+}
+
+// Update token count in UI
+function updateTokenUI() {
+  tokenCountElem.textContent = player.tokens;
+}
+
+// Show message temporarily
+let messageTimeout;
+function showMessage(msg) {
+  clearTimeout(messageTimeout);
+  messageElem.textContent = msg;
+  messageTimeout = setTimeout(() => {
+    messageElem.textContent = "";
+  }, 4000);
+}
+
+// Game loop
+function gameLoop() {
+  // Movement controls
+  let newX = player.x;
+  let newY = player.y;
+
+  if (keysPressed['ArrowUp']) newY -= player.speed;
+  if (keysPressed['ArrowDown']) newY += player.speed;
+  if (keysPressed['ArrowLeft']) newX -= player.speed;
+  if (keysPressed['ArrowRight']) newX += player.speed;
+
+  if (canMove(newX, newY)) {
+    player.x = newX;
+    player.y = newY;
+  }
+
+  drawGrid();
+  drawTokens();
+  drawNPCs();
+  drawPlayer();
+
+  // Check interactions
+  if (!checkTokenCollection()) {
+    checkNPCInteraction();
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// Keyboard input handlers
+window.addEventListener('keydown', (e) => {
+  keysPressed[e.key] = true;
+});
+
+window.addEventListener('keyup', (e) => {
+  keysPressed[e.key] = false;
+});
+
+// Start the game
+updateTokenUI();
+showMessage("Welcome to Hope Quest! Use arrow keys to move.");
+requestAnimationFrame(gameLoop);
+</script>
+
+</body>
+  </html>
